@@ -261,8 +261,9 @@ for i in range(50):
     if device=='cuda': torch.cuda.synchronize()
     t1 = time.time()
     dt = (t1 - t0) * 1000  # elapsed time in milliseconds
+    tokens_per_sec = (train_loader.B * train_loader.T) / (t1-t0)
 
-    print(f"step {i}, loss: {loss.item()}, dt: {dt:.1f} ms")
+    print(f"step {i}, loss: {loss.item()}, dt: {dt:.1f} ms, tokens/sec: {tokens_per_sec:.1f}")
 
 print(loss.item())
 print("will kill me now...")
