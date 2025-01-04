@@ -258,7 +258,7 @@ for i in range(50):
     # import code; code.interact(local=locals())
     loss.backward()
     optimizer.step()
-    torch.cuda.synchronize()
+    if device=='cuda': torch.cuda.synchronize()
     t1 = time.time()
     dt = (t1 - t0) * 1000  # elapsed time in milliseconds
 
