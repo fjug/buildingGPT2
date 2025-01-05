@@ -295,6 +295,13 @@ class DataLoaderLite:
 #   python train_gpt2.py
 # DDP launch:
 #   torchrun --standalone --nproc_per_node 4 train_gpt2.py
+# 
+# Run such that it goes on even after vscode quits:
+#   nohup torchrun --standalone --nproc_per_node 4 train_gpt2.py
+# Kill then via:
+#   pkill -f train_gpt2.py
+# or...
+#   ps aux | grep train_gpt2.py    +    kill XXX
 # ----------------------------------------------------------
 # ----------------------------------------------------------
 # ----------------------------------------------------------
@@ -385,13 +392,19 @@ os.makedirs(log_dir, exist_ok=True)
 logfile = os.path.join(log_dir, f"log_rank{ddp_rank}.txt")
 with open(logfile, "w") as f: # clear existing log file
     pass
+samplesfile = os.path.join(log_dir, f"samples_rank{ddp_rank}.txt")
+with open(samplesfile, "w") as f: # clear existing log file
+    pass
 
+VALIDATION_INTERVAL = 250
+SAMPLE_MODEL_INTERVAL = 1000
+CHECKPOINT_INTERVAL = 5000
 for step in range(max_steps):
     t0 = time.time()
     last_step = (step == max_steps - 1)
 
     # every now and then, run the validation set
-    if step % 250 == 0 or last_step:
+    if step % VALIDATION_INTERVAL == 0 or last_step:
         model.eval()
         val_loader.reset()
         with torch.no_grad():
@@ -410,24 +423,27 @@ for step in range(max_steps):
             print(f"validation loss: {val_loss_accum.item():9.6f}")
             with open(logfile, "a") as f:
                 f.write(f"{step} val {val_loss_accum.item():.4}\n")
-            if (step > 0 and step % 5000 == 0) or last_step:
-                checkpoint_path = os.path.join(log_dir, f"checkpoint_{step}.pt")
-                checkpoint = {
-                    'model': raw_model.state_dict(),
-                    'config': raw_model.config,
-                    'step': step,
-                    'val_loss': val_loss_accum.item(),
-                    'optimizer': optimizer.state_dict(),
-                    # seed business obmitted...
-                }
-                torch.save(checkpoint, checkpoint_path)
+
+    # every now and then, save a checkpoint   
+    if (step > 0 and step % CHECKPOINT_INTERVAL == 0) or last_step:
+        if master_process:
+            checkpoint_path = os.path.join(log_dir, f"checkpoint_{step}.pt")
+            checkpoint = {
+                'model': raw_model.state_dict(),
+                'config': raw_model.config,
+                'step': step,
+                'val_loss': val_loss_accum.item(),
+                'optimizer': optimizer.state_dict(),
+                # seed business obmitted...
+            }
+            torch.save(checkpoint, checkpoint_path)
 
     # *** missing *** missing *** missing *** missing *** missing ***
     # HellaSwag evaluation --> did not do it here to save some time...
     # *** missing *** missing *** missing *** missing *** missing ***
 
     # every now and then we generate from the model (except at the very start)
-    if (step > 0 and step % 250 == 0) or last_step:
+    if (step > 0 and step % SAMPLE_MODEL_INTERVAL == 0) or last_step:
         model.eval()
         num_return_sequences = 4
         max_length = 32
@@ -459,6 +475,8 @@ for step in range(max_steps):
             tokens = xgen[i, :max_length].tolist()
             decoded = enc.decode(tokens)
             print(f"rank {ddp_rank} | sample {i}: {decoded}")
+            with open(samplesfile, "a") as f:
+                f.write(f"step {step} | rank {ddp_rank} | sample {i}: {decoded}\n")
 
     # train for every single step
     model.train()
