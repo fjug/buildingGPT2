@@ -2,3 +2,4 @@ edu_fineweb10B*
 fineweb10B*
 logs/checkpoint*
 logs/log_rank*
+__pycache__/*
