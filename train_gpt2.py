@@ -297,7 +297,7 @@ class DataLoaderLite:
 #   torchrun --standalone --nproc_per_node 4 train_gpt2.py
 # 
 # Run such that it goes on even after vscode quits:
-#   nohup torchrun --standalone --nproc_per_node 4 train_gpt2.py
+#   nohup torchrun --standalone --nproc_per_node 4 train_gpt2.py &
 # Kill then via:
 #   pkill -f train_gpt2.py
 # or...
@@ -446,7 +446,7 @@ for step in range(max_steps):
     if (step > 0 and step % SAMPLE_MODEL_INTERVAL == 0) or last_step:
         model.eval()
         num_return_sequences = 4
-        max_length = 32
+        max_length = 64
         tokens = enc.encode("Hello, I'm a language model,")
         tokens = torch.tensor(tokens, dtype=torch.long)
         tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)
